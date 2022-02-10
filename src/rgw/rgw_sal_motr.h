@@ -52,26 +52,49 @@ class MotrStore;
 //     the index operation. Currently, fdmi can only do sub string matching on
 //     the value part, not key part, and can't specify which index to watch,
 //     the filter rule is applied to all indices.
-//     this 
 // (3) The FDMI event is delivered to an FDMI application which defines a
 //     callback function to process FDMI events.
+// (4) if Motr is configured to distribute an index over multiple CAS services,
+//     FDMI will generate multiple identical(duplicated) events as each CAS
+//     handle FDMI independently. FDMI doesn't guarantee that only one event
+//     is delivered to the plugin, the plugin will receive duplicated events and
+//     it has to handle duplication itself. FDMI provides no help on telling if
+//     2 events are duplicated.
 //
 // Implementation of object watch-notify using Motr FDMI. 
 // (1) An FDMI filter is added (in Motr configuration yaml file) specifying
 //     a matching sub-string (marker).
-// (2) A notifier creates a set of indices which are used to trigger FDMI
+// (2) A notifier initialises a notification and passes it to watchers. A
+//     watcher is the receiving end of a notification. Notifiers and watchers
+//     are located at RGW instances (Motr client processes). The notification
+//     passing is implemented using FDMI events.
+// (3) A notifier creates a set of indices which are used to trigger FDMI
 //     events and to pass messages.
-// (3) For an object, hash(obj_name) is used to pick which index to insert
-//     a new key/value record,
+// (4) If a notifier wants to pass a message about an object, for example,
+//     message telling the object's metadata has been changed. The notifier
+//     first uses hash(obj_name) to pick which index to insert a new
+//     key/value record,
 //     key = unique_fid(obj_name),
 //     value = marker (for fdmi filter) + notification msg.
-//     If multiple rgw instances are trying to write the same objects at the same
-//     time, we assume that Motr index is updated atomically.
-// (4) An FDMI event with a special marker is generated and
-//     picked up by the filter and delivered to our fdmi application, watcher.
-//     The watcher defines the callback function processing the FDMI events.
-// (5) The embedded notification message is then decoded to get object name
-//     and index opcode for further action.
+//     Note: If multiple rgw instances are trying to write the same objects at
+//     the same time, we assume that Motr index is updated atomically.
+// (5) On the motr service side, m0d, when processing the index operation,
+//     FDMI finds that the key/value contains the filter's marker so it
+//     creates an FDMI event which is then sent to all RGW instances.
+// (6) The FDMI event includes the key/value in its payload, so the notification
+//     is passed on to RGW instances
+// (7) A watcher is implemented as an FDMI plugin and it defines a callback
+//     function to process the FDMI events. Registering an FDMI filter and its
+//     callback function is in MotrWatcher::ini_fdmi_plugin().
+//     Note: the watcher's callback fucntion (a member function) can't be directly
+//     register as FDMI's callback function as the function pointer to a member
+//     funciton is a different type to FDMI's callback function in C++.
+//     A workaround is to define a static function in the rgw::sal namespace.
+//     And it works as a dispatcher to further deliver the FDMI event to
+//     watcher's callback function. A map between filter fid and watcher is
+//     maintained for looking up a watcher (ant its callback function).
+// (8) The embedded notification message is then decoded by the wather to get
+//     object name and index opcode for further action.
 //
 // How metadata cache use watch-notify:
 // (1) MGW uses an index to store object metatadata.
