@@ -134,6 +134,22 @@ struct MotrUserInfo {
     decode(attrs, bl);
     DECODE_FINISH(bl);
   }
+
+  void encode_user_by_email(bufferlist& bl)  const
+  {
+    ENCODE_START(2, 2, bl);
+    encode(info.user_email, bl);
+    encode(info.user_id.id, bl);
+    ENCODE_FINISH(bl);
+  }
+
+  void decode_user_by_email(bufferlist::const_iterator& bl)
+  {
+    DECODE_START(2, bl);
+    decode(info.user_email, bl);
+    decode(info.user_id.id, bl);
+    DECODE_FINISH(bl);
+  }
 };
 WRITE_CLASS_ENCODER(MotrUserInfo);
 
@@ -163,32 +179,6 @@ struct MotrAccessKey {
   }
 };
 WRITE_CLASS_ENCODER(MotrAccessKey);
-
-struct MotrEmailInfo {
-  std::string email_id; // email_id
-  std::string user_id; // UserID
-
-  MotrEmailInfo() {}
-  MotrEmailInfo(std::string _id, std::string _user_id)
-    : email_id(std::move(_id)), user_id(std::move(_user_id)) {}
-
-  void encode(bufferlist& bl)  const
-  {
-    ENCODE_START(2, 2, bl);
-    encode(email_id, bl);
-    encode(user_id, bl);
-    ENCODE_FINISH(bl);
-  }
-
-  void decode(bufferlist::const_iterator& bl)
-  {
-    DECODE_START(2, bl);
-    decode(email_id, bl);
-    decode(user_id, bl);
-    DECODE_FINISH(bl);
-  }
-};
-WRITE_CLASS_ENCODER(MotrEmailInfo);
 
 class MotrNotification : public Notification {
   public:
@@ -1022,7 +1012,7 @@ class MotrStore : public Store {
                           std::string key_str, bufferlist &bl, bool update=true);
     int check_n_create_global_indices();
     int store_access_key(const DoutPrefixProvider *dpp, optional_yield y, MotrAccessKey access_key);
-    int store_email_info(const DoutPrefixProvider *dpp, optional_yield y, MotrEmailInfo emailInfo);
+    int store_email_info(const DoutPrefixProvider *dpp, optional_yield y, std::string email);
 
     int init_metadata_cache(const DoutPrefixProvider *dpp, CephContext *cct);
     MotrMetaCache* get_obj_meta_cache() {return obj_meta_cache;}

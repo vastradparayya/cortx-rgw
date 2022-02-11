@@ -400,9 +400,8 @@ int MotrUser::store_user(const DoutPrefixProvider* dpp,
     MotrAccessKey MGWUserKeys(access_key, secret_key, info.user_id.id);
     store->store_access_key(dpp, y, MGWUserKeys);
   }
-  if(!info.user_email.empty()) {
-  MotrEmailInfo emailInfo(info.user_email, info.user_id.id);
-  store->store_email_info(dpp, y, emailInfo);
+ if (!info.user_email.empty()) {
+   store->store_email_info(dpp, y, info.user_email);
   }
   orig_info.user_id.id = info.user_id.id;
   // XXX: we open and close motr idx 2 times in this method:
@@ -2975,10 +2974,9 @@ int MotrStore::get_user_by_email(const DoutPrefixProvider *dpp, const std::strin
   User *u;
   bufferlist bl;
   RGWUserInfo uinfo;
-  MotrEmailInfo emailInfo;
-
+  
   rc = do_idx_op_by_name(RGW_IAM_MOTR_EMAIL_KEY,
-                           M0_IC_GET, key, bl);
+                           M0_IC_GET, email, bl);
   if (rc < 0){
     ldout(cctx, 0) << "Email Id not found: rc = " << rc << dendl;
     return rc;
@@ -2986,9 +2984,8 @@ int MotrStore::get_user_by_email(const DoutPrefixProvider *dpp, const std::strin
 
   bufferlist& blr = bl;
   auto iter = blr.cbegin();
-  emailInfo.decode(iter);
+  uinfo.decode_user_by_email(iter);
 
-  uinfo.user_id.id = emailInfo.user_id;
   ldout(cctx, 0) << "Loading user: " << uinfo.user_id.id << dendl;
   rc = load_user_from_idx(dpp, this, uinfo, nullptr, nullptr);
   if (rc < 0){
@@ -2999,7 +2996,7 @@ int MotrStore::get_user_by_email(const DoutPrefixProvider *dpp, const std::strin
   if (!u)
     return -ENOMEM;
 
-  user->reset(u);
+  user->reset(u);  
   return 0;
 }
 
@@ -3023,15 +3020,15 @@ int MotrStore::store_access_key(const DoutPrefixProvider *dpp, optional_yield y,
   return rc;
 }
 
-int MotrStore::store_email_info(const DoutPrefixProvider *dpp, optional_yield y, MotrEmailInfo emailInfo)
+int MotrStore::store_email_info(const DoutPrefixProvider *dpp, optional_yield y, std::string email_id)
 {
   int rc;
   bufferlist bl;
-  emailInfo.encode(bl);
+  info.encode_user_by_email(bl);
   rc = do_idx_op_by_name(RGW_IAM_MOTR_EMAIL_KEY,
-                                M0_IC_PUT, emailInfo.email_id, bl);
-  if (rc < 0){
-    ldout(cctx, 0) << "Failed to store key: rc = " << rc << dendl;
+                                M0_IC_PUT, email_id, bl);
+  if (rc < 0) {
+    ldout(cctx, 0) << "Failed to store the user by email as key: rc = " << rc << dendl;
     return rc;
   }
   return rc;
