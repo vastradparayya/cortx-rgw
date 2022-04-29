@@ -732,6 +732,20 @@ TEST_F(PolicyTest, Eval7) {
 	    Effect::Pass);
 }
 
+TEST_F(PolicyTest, eval_conditions) {
+  auto p  = Policy(cct.get(), arbitrary_tenant,
+		   bufferlist::static_from_string(example1));
+  Environment e;
+
+  // evaluates statements, default allowed will be false
+  EXPECT_EQ(p.eval_conditions(e),
+	    Effect::Allow);
+  // evaluates statements, default allowed will be false
+  // Identity, PolicyPrincipal are optional params
+  EXPECT_EQ(p.eval_principal(e, none),
+	    Effect::Allow);
+}
+
 const string PolicyTest::arbitrary_tenant = "arbitrary_tenant";
 string PolicyTest::example1 = R"(
 {
