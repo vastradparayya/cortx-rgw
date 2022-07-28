@@ -1346,16 +1346,21 @@ int MotrBucket::list(const DoutPrefixProvider *dpp, ListParams& params, int max,
         ent.decode(iter);
         rgw_obj_key key(ent.key);
         if (params.list_versions || ent.is_visible()) {
-          if (key.name == params.marker.name &&
-              // filter out versions which go before marker.instance
-              ((!null_ent.key.empty() && params.marker.instance == "null" &&
-                 null_ent.meta.mtime < ent.meta.mtime) ||
-               (key.instance != "" &&
-                key.instance < params.marker.instance))) {
-              // Store the modified time of null version entry
-              if(null_ent.meta.mtime >= ent.meta.mtime)
-                marker_mtime = null_ent.meta.mtime;
-              continue;
+          if (key.name == params.marker.name) {
+            // filter out versions which go before marker.instance
+            if (params.marker.instance != ""){
+              if (params.marker.instance == "null") {
+                  if (key.instance == "") continue;
+                  else if (null_ent.key.name == "") continue;
+              } else {
+                // non null version
+                  if (key.instance == params.marker.instance)
+                      marker_mtime = ent.meta.mtime;
+                  if (ent.meta.mtime <= marker_mtime)
+                      continue;
+              }
+            }
+            if (params.marker.instance == "" && !(ent.flags & rgw_bucket_dir_entry::FLAG_VER)) continue;
           }
 check_keycount:
           if (keycount >= max) {
